@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Analysis Result — ResearchAI{% endblock %}
+
+{% block header_title %}Analysis Result{% endblock %}
+
+{% block content %}
+  <div class="grid-2">
+    <div class="card">
+      <h3>Summary</h3>
+      <p>{{ summary }}</p>
+
+      <h4 style="margin-top:12px">Similar Topics</h4>
+      <ul>
+        {% for doc in similar_docs %}
+        <li>{{ doc }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Keywords</h3>
+      <p>{{ keywords }}</p>
+
+      <h4 style="margin-top:12px">Cleaned Text Preview</h4>
+      <div style="max-height:220px;overflow:auto;padding:8px;border-radius:8px;background:var(--bg);">{{ cleaned_text }}</div>
+    </div>
+  </div>
+
+{% endblock %}

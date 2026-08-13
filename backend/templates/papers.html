@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}My Papers | ResearchAI{% endblock %}
+{% block header_title %}My Papers{% endblock %}
+{% block header_sub %}Your research library.{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: center;">
+    <input type="text" placeholder="Search papers..." style="padding: 10px 16px; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); flex: 1; max-width: 400px;">
+</div>
+
+{% if papers %}
+<div class="paper-grid">
+    {% for paper in papers %}
+    <div class="paper-card">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">
+            <div style="font-size: 2rem; color: #ef4444;">📄</div>
+            <div>
+                <div class="paper-title" style="margin-bottom: 4px;">{{ paper[1] }}</div>
+                <div class="paper-meta" style="margin: 0;">{{ paper[5] if paper[5] else '?' }} Pages</div>
+            </div>
+        </div>
+        <div class="paper-meta">
+            Uploaded: {{ paper[4][:10] if paper[4] else 'Unknown' }}
+        </div>
+        <div class="paper-actions">
+            <a href="/paper/{{ paper[0] }}" class="btn ghost" style="flex: 1; padding: 6px;">Analyze</a>
+            <button class="btn ghost" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">Delete</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="muted">No papers found. Upload a paper on the Dashboard to see it here.</p>
+{% endif %}
+{% endblock %}

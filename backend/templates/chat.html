@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}AI Chat | ResearchAI{% endblock %}
+{% block header_title %}Research Assistant{% endblock %}
+{% block header_sub %}Global AI chat for your research library.{% endblock %}
+
+{% block content %}
+<div class="workspace">
+    <div class="ai-panel" style="flex: 1; max-width: 800px; margin: 0 auto; height: calc(100vh - 160px);">
+        <div class="ai-header" style="display: flex; gap: 16px; align-items: center; justify-content: space-between;">
+            <div>
+                <h2>AI Assistant</h2>
+                <p class="muted" style="font-size: 0.8rem; margin-top: 4px;">Select a paper to begin.</p>
+            </div>
+            <select id="paperSelector" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main);">
+                <option value="">-- Select a research paper --</option>
+            </select>
+        </div>
+        
+        <div class="chat-history" id="chatHistory">
+            <div class="chat-msg ai" id="welcomeMsg">
+                Select a research paper to start asking questions.
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Ask anything..." autocomplete="off" disabled>
+            <button id="sendBtn" class="btn" disabled>➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatHistory = document.getElementById('chatHistory');
+    const paperSelector = document.getElementById('paperSelector');
+    const welcomeMsg = document.getElementById('welcomeMsg');
+
+    // Load papers
+    try {
+        const res = await fetch('/api/papers');
+        const data = await res.json();
+        if (data.papers) {
+            data.papers.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.paper_id;
+                opt.textContent = p.filename;
+                paperSelector.appendChild(opt);
+            });
+        }
+    } catch(err) { console.error('Error loading papers'); }
+
+    paperSelector.addEventListener('change', () => {
+        if (paperSelector.value) {
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            welcomeMsg.innerHTML = `You've selected a paper. What would you like to know?`;
+        } else {
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            welcomeMsg.innerHTML = `Select a research paper to start asking questions.`;
+        }
+    });
+
+    function addMessage(text, type, sources = []) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-msg ${type}`;
+        
+        let html = text.replace(/\n/g, '<br>');
+        
+        if (sources && sources.length > 0) {
+            html += `<div class="sources"><strong>Sources</strong><br>`;
+            sources.forEach(src => {
+                html += `Page ${src.page}<br>`;
+            });
+            html += `</div>`;
+        }
+        
+        msgDiv.innerHTML = html;
+        chatHistory.appendChild(msgDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function addLoading() {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg ai loading';
+        msgDiv.id = 'loadingMsg';
+        msgDiv.innerHTML = '<em>ResearchAI is thinking...</em>';
+        chatHistory.appendChild(msgDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function removeLoading() {
+        const loader = document.getElementById('loadingMsg');
+        if (loader) loader.remove();
+    }
+
+    async function sendQuestion(question) {
+        if (!question.trim() || !paperSelector.value) return;
+        
+        addMessage(question, 'user');
+        chatInput.value = '';
+        addLoading();
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paper_id: paperSelector.value, question: question })
+            });
+            
+            const data = await response.json();
+            removeLoading();
+
+            if (data.success) {
+                addMessage(data.answer, 'ai', data.sources);
+            } else {
+                addMessage(`Error: ${data.error}`, 'ai');
+            }
+        } catch (err) {
+            removeLoading();
+            addMessage('ResearchAI could not generate an answer. Please try again.', 'ai');
+        }
+    }
+
+    sendBtn.addEventListener('click', () => sendQuestion(chatInput.value));
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendQuestion(chatInput.value);
+    });
+});
+</script>
+{% endblock %}

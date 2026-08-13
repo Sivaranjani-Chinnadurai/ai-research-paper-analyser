@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}ResearchAI — History{% endblock %}
+
+{% block header_title %}Analysis History{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h3>All Analyses</h3>
+    <table style="width:100%;margin-top:12px">
+      <thead>
+        <tr><th>File</th><th>Summary</th><th>Keywords</th><th>Uploaded</th><th>Pages</th></tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        <tr>
+          <td><a href="/paper/{{ row[0] }}">{{ row[1] }}</a></td>
+          <td>{{ row[2][:180] }}{% if row[2]|length > 180 %}...{% endif %}</td>
+          <td>{{ row[3] }}</td>
+          <td>{{ row[4] or '—' }}</td>
+          <td>{{ row[5] or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No data yet — upload a paper to start.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

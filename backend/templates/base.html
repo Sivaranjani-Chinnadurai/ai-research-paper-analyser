@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}ResearchAI{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script defer src="/static/js/app.js"></script>
+</head>
+<body class="theme-light">
+
+  <div class="app-shell">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="logo">ResearchAI</div>
+        <div class="tag">AI-Powered Research</div>
+      </div>
+
+      <nav class="nav">
+        <a href="/dashboard" class="nav-item {% if request.path == '/dashboard' or request.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/papers" class="nav-item {% if request.path == '/papers' %}active{% endif %}">My Papers</a>
+        <a href="/chat" class="nav-item {% if request.path == '/chat' %}active{% endif %}">AI Chat</a>
+        <a href="/insights" class="nav-item {% if request.path == '/insights' %}active{% endif %}">Research Insights</a>
+        <a href="/profile" class="nav-item {% if request.path == '/profile' %}active{% endif %}">Settings</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="avatar">{{ session.user[0]|upper if session.user else 'U' }}</div>
+          <div class="profile-meta">
+            <div class="name" style="font-weight: 500; font-size: 0.9rem;">{{ session.user if session.user else 'Guest' }}</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="themeToggle" class="link">Theme</button>
+          <a href="/logout" class="link">Logout</a>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="topbar">
+        <button id="hamburger" class="hamburger" aria-label="Open menu">☰</button>
+        <div class="topbar-title">
+          <h1>{% block header_title %}Good afternoon 👋{% endblock %}</h1>
+          <p class="muted">{% block header_sub %}Your intelligent research workspace.{% endblock %}</p>
+        </div>
+        <div class="topbar-actions">
+            {% block header_actions %}{% endblock %}
+        </div>
+      </header>
+
+      <main class="content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | ResearchAI{% endblock %}
+{% block header_title %}Good afternoon 👋{% endblock %}
+{% block header_sub %}Your intelligent research workspace.{% endblock %}
+
+{% block content %}
+
+<div class="grid-stats">
+    <div class="stat-card">
+        <h3>Papers Analyzed</h3>
+        <div class="value">{{ stats.papers }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Research Sessions</h3>
+        <div class="value">{{ stats.sessions }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Recent Papers (Today)</h3>
+        <div class="value">{{ stats.recent_activity }}</div>
+    </div>
+</div>
+
+<form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📄</div>
+        <div class="upload-title">Upload Research Paper</div>
+        <div class="muted">Drop your PDF here or <span style="color:var(--primary); font-weight:500;">Browse PDF</span></div>
+        <div class="muted" style="font-size: 0.8rem; margin-top: 8px;">Supported format: PDF</div>
+        <input type="file" name="file" id="fileInput" accept="application/pdf" style="display: none;">
+        <div id="uploadStatus" style="display: none;"></div>
+    </div>
+</form>
+
+<h2 style="margin-bottom: 20px; font-size: 1.25rem;">Recent Papers</h2>
+
+{% if papers %}
+<div class="paper-grid">
+    {% for paper in papers[:6] %}
+    <div class="paper-card">
+        <div class="paper-title">{{ paper[1] }}</div>
+        <div class="paper-meta">
+            {{ paper[5] if paper[5] else '?' }} Pages • Uploaded {{ paper[4][:10] if paper[4] else 'Unknown' }}
+        </div>
+        <div class="paper-actions">
+            <a href="/paper/{{ paper[0] }}" class="btn ghost" style="flex: 1; padding: 6px;">Analyze</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="muted">You haven't uploaded any research papers yet. Upload a PDF above to get started.</p>
+{% endif %}
+
+{% endblock %}

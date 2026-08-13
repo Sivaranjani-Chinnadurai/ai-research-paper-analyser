@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}{{ filename }} | ResearchAI{% endblock %}
+{% block header_title %}Analyzing: {{ filename }}{% endblock %}
+{% block header_sub %}Research Paper Assistant{% endblock %}
+
+{% block content %}
+<div class="workspace">
+    <div class="pdf-panel">
+        <div class="pdf-header">
+            <h3 style="font-size: 1rem; color: var(--text-main);">{{ filename }}</h3>
+        </div>
+        <div class="pdf-viewer">
+            <iframe src="{{ file_url }}#toolbar=0" title="PDF Viewer"></iframe>
+        </div>
+    </div>
+
+    <div class="ai-panel">
+        <div class="ai-header">
+            <h2>Research Assistant</h2>
+            <p class="muted" style="font-size: 0.8rem; margin-top: 4px;">Ask questions about the selected paper.</p>
+        </div>
+        
+        <div class="chat-history" id="chatHistory">
+            <div class="chat-msg ai">
+                Hello! I'm ResearchAI. I've analyzed <strong>{{ filename }}</strong>. What would you like to know?
+                <br><br>
+                <strong style="font-size: 0.85rem; color: var(--primary);">Suggested Questions:</strong>
+                <ul style="margin-top: 8px; margin-left: 20px; font-size: 0.85rem; color: var(--text-muted);">
+                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What is the main objective?</a></li>
+                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What methodology was used?</a></li>
+                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What are the key findings?</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="hidden" id="currentPaperId" value="{{ paper_id }}">
+            <input type="text" id="chatInput" placeholder="Ask anything about this paper..." autocomplete="off">
+            <button id="sendBtn" class="btn">➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatHistory = document.getElementById('chatHistory');
+    const paperId = document.getElementById('currentPaperId').value;
+
+    function addMessage(text, type, sources = []) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-msg ${type}`;
+        
+        let html = text.replace(/\n/g, '<br>'); // Simple formatting
+        
+        if (sources && sources.length > 0) {
+            html += `<div class="sources"><strong>Sources</strong><br>`;
+            sources.forEach(src => {
+                html += `Page ${src.page}<br>`;
+            });
+            html += `</div>`;
+        }
+        
+        msgDiv.innerHTML = html;
+        chatHistory.appendChild(msgDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function addLoading() {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg ai loading';
+        msgDiv.id = 'loadingMsg';
+        msgDiv.innerHTML = '<em>ResearchAI is thinking...</em>';
+        chatHistory.appendChild(msgDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function removeLoading() {
+        const loader = document.getElementById('loadingMsg');
+        if (loader) loader.remove();
+    }
+
+    async function sendQuestion(question) {
+        if (!question.trim()) return;
+        
+        addMessage(question, 'user');
+        chatInput.value = '';
+        addLoading();
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paper_id: paperId, question: question })
+            });
+            
+            const data = await response.json();
+            removeLoading();
+
+            if (data.success) {
+                addMessage(data.answer, 'ai', data.sources);
+            } else {
+                addMessage(`Error: ${data.error}`, 'ai');
+            }
+        } catch (err) {
+            removeLoading();
+            addMessage('ResearchAI could not generate an answer. Please try again.', 'ai');
+        }
+    }
+
+    sendBtn.addEventListener('click', () => sendQuestion(chatInput.value));
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendQuestion(chatInput.value);
+    });
+
+    document.querySelectorAll('.suggest-q').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            sendQuestion(e.target.innerText);
+        });
+    });
+});
+</script>
+{% endblock %}

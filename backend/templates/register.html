@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Account — ResearchAI{% endblock %}
+
+{% block content %}
+    <div style="display:flex;align-items:center;justify-content:center;min-height:60vh">
+        <div class="card" style="max-width:620px;width:100%">
+            <h2 style="margin:0 0 6px">Create your ResearchAI account</h2>
+            <p class="muted">Get access to AI-powered paper analysis</p>
+
+            <form method="POST" action="/register" style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;gap:8px">
+                    <input name="first_name" placeholder="First name" required />
+                    <input name="last_name" placeholder="Last name" required />
+                </div>
+                <input name="username" placeholder="Username" required />
+                <input type="password" name="password" placeholder="Password" required />
+                <input name="phone" placeholder="Phone number" />
+                <input type="date" name="dob" />
+
+                <div style="display:flex;gap:8px">
+                    <button class="btn" type="submit">Create account</button>
+                    <a href="/login" class="btn ghost">Back to Login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

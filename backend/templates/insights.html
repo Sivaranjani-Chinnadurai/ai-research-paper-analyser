@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Insights | ResearchAI{% endblock %}
+{% block header_title %}Research Insights{% endblock %}
+{% block header_sub %}Aggregated data across your research library.{% endblock %}
+
+{% block content %}
+<div class="grid-stats" style="margin-bottom: 40px;">
+    <div class="stat-card" style="grid-column: span 2;">
+        <h3>Top Keywords Found</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;">
+            {% for kw, count in keywords[:20] %}
+            <span style="background-color: rgba(var(--primary), 0.1); color: var(--primary); padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; border: 1px solid rgba(var(--primary), 0.2);">
+                {{ kw }} ({{ count }})
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<p class="muted">Note: More advanced insights like methodology breakdowns and cross-paper topic clustering will be available in a future update.</p>
+{% endblock %}
