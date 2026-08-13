@@ -1,126 +1,75 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}{{ filename }} | ResearchAI{% endblock %}
-{% block header_title %}Analyzing: {{ filename }}{% endblock %}
-{% block header_sub %}Research Paper Assistant{% endblock %}
+{% block title %}{{ filename }} — ResearchAI{% endblock %}
+{% block breadcrumb %}Paper Analysis / {{ filename }}{% endblock %}
 
 {% block content %}
+<style>
+/* Override default main-content padding for full-bleed workspace */
+.main-content > div:last-child {
+    padding: 0 !important;
+    max-width: none !important;
+    height: calc(100vh - 60px);
+}
+</style>
+
 <div class="workspace">
-    <div class="pdf-panel">
-        <div class="pdf-header">
-            <h3 style="font-size: 1rem; color: var(--text-main);">{{ filename }}</h3>
+    <!-- PDF Viewer Panel -->
+    <div class="workspace-pdf">
+        <div class="workspace-header">
+            <div style="display:flex; align-items:center; gap:0.5rem; overflow:hidden;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ filename }}</span>
+            </div>
+            <a href="{{ file_url }}" target="_blank" class="btn ghost" style="padding:0.25rem 0.5rem; font-size:0.75rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download
+            </a>
         </div>
-        <div class="pdf-viewer">
-            <iframe src="{{ file_url }}#toolbar=0" title="PDF Viewer"></iframe>
+        <div style="flex:1; width:100%;">
+            <iframe src="{{ file_url }}" width="100%" height="100%" style="border:none;"></iframe>
         </div>
     </div>
 
-    <div class="ai-panel">
-        <div class="ai-header">
-            <h2>Research Assistant</h2>
-            <p class="muted" style="font-size: 0.8rem; margin-top: 4px;">Ask questions about the selected paper.</p>
+    <!-- AI Chat Panel -->
+    <div class="workspace-chat">
+        <div class="workspace-header">
+            <span style="font-weight:600;">Research Assistant</span>
+            <span class="text-muted text-sm" style="display:flex; align-items:center; gap:0.25rem;">
+                <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;"></span>
+                Ollama Ready
+            </span>
         </div>
-        
-        <div class="chat-history" id="chatHistory">
+
+        <div class="chat-messages" id="chatMessages">
             <div class="chat-msg ai">
-                Hello! I'm ResearchAI. I've analyzed <strong>{{ filename }}</strong>. What would you like to know?
-                <br><br>
-                <strong style="font-size: 0.85rem; color: var(--primary);">Suggested Questions:</strong>
-                <ul style="margin-top: 8px; margin-left: 20px; font-size: 0.85rem; color: var(--text-muted);">
-                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What is the main objective?</a></li>
-                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What methodology was used?</a></li>
-                    <li><a href="#" class="suggest-q" style="color: var(--primary);">What are the key findings?</a></li>
-                </ul>
+                <div class="msg-bubble">
+                    Hello! I'm ResearchAI. I've analyzed <strong>{{ filename }}</strong>. What would you like to know about this paper?
+                </div>
+            </div>
+            
+            <!-- Suggested Questions -->
+            <div id="suggestedQuestions" style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.5rem;">
+                <button class="source-pill" style="cursor:pointer;" onclick="askSuggested('What is the main objective?')">What is the main objective?</button>
+                <button class="source-pill" style="cursor:pointer;" onclick="askSuggested('What methodology was used?')">What methodology was used?</button>
+                <button class="source-pill" style="cursor:pointer;" onclick="askSuggested('What are the key findings?')">What are the key findings?</button>
+                <button class="source-pill" style="cursor:pointer;" onclick="askSuggested('What are the limitations?')">What are the limitations?</button>
             </div>
         </div>
 
         <div class="chat-input-area">
-            <input type="hidden" id="currentPaperId" value="{{ paper_id }}">
-            <input type="text" id="chatInput" placeholder="Ask anything about this paper..." autocomplete="off">
-            <button id="sendBtn" class="btn">➤</button>
+            <form id="chatForm" style="display:flex; gap:0.5rem; flex-direction:column; position:relative;">
+                <input type="hidden" id="paperId" value="{{ paper_id }}">
+                <textarea 
+                    id="chatInput" 
+                    placeholder="Ask anything about this paper... (Shift+Enter for new line)" 
+                    style="resize:none; padding-right:3rem; min-height:80px;"
+                ></textarea>
+                <button type="submit" id="sendBtn" class="btn" style="position:absolute; right:0.5rem; bottom:0.5rem; padding:0.5rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </form>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const chatInput = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const chatHistory = document.getElementById('chatHistory');
-    const paperId = document.getElementById('currentPaperId').value;
-
-    function addMessage(text, type, sources = []) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `chat-msg ${type}`;
-        
-        let html = text.replace(/\n/g, '<br>'); // Simple formatting
-        
-        if (sources && sources.length > 0) {
-            html += `<div class="sources"><strong>Sources</strong><br>`;
-            sources.forEach(src => {
-                html += `Page ${src.page}<br>`;
-            });
-            html += `</div>`;
-        }
-        
-        msgDiv.innerHTML = html;
-        chatHistory.appendChild(msgDiv);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-    }
-
-    function addLoading() {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'chat-msg ai loading';
-        msgDiv.id = 'loadingMsg';
-        msgDiv.innerHTML = '<em>ResearchAI is thinking...</em>';
-        chatHistory.appendChild(msgDiv);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-    }
-
-    function removeLoading() {
-        const loader = document.getElementById('loadingMsg');
-        if (loader) loader.remove();
-    }
-
-    async function sendQuestion(question) {
-        if (!question.trim()) return;
-        
-        addMessage(question, 'user');
-        chatInput.value = '';
-        addLoading();
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paper_id: paperId, question: question })
-            });
-            
-            const data = await response.json();
-            removeLoading();
-
-            if (data.success) {
-                addMessage(data.answer, 'ai', data.sources);
-            } else {
-                addMessage(`Error: ${data.error}`, 'ai');
-            }
-        } catch (err) {
-            removeLoading();
-            addMessage('ResearchAI could not generate an answer. Please try again.', 'ai');
-        }
-    }
-
-    sendBtn.addEventListener('click', () => sendQuestion(chatInput.value));
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendQuestion(chatInput.value);
-    });
-
-    document.querySelectorAll('.suggest-q').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            sendQuestion(e.target.innerText);
-        });
-    });
-});
-</script>
 {% endblock %}

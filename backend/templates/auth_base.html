@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ResearchAI{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="auth-layout">
+        <div class="auth-left">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:2rem;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+                </svg>
+                <h1 style="font-size:2rem;">ResearchAI</h1>
+            </div>
+            <h2 style="font-size:2.5rem;font-weight:600;margin-bottom:1rem;color:var(--text)">Accelerate your literature review.</h2>
+            <p style="font-size:1.125rem;color:var(--text-muted);max-width:400px;line-height:1.6">Upload research papers, extract key insights, and chat directly with your documents using locally-hosted Ollama AI models.</p>
+        </div>
+        <div class="auth-right">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

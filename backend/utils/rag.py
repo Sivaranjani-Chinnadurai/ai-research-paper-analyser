@@ -6,34 +6,60 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from .pdf_extractor import extract_text_by_page
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 
-LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'gemini').strip().lower()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.1-pro-preview')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'ollama').strip().lower()
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 
-gemini_client = None
+ollama_client = None
 
 
 def load_llm_clients():
-    global LLM_PROVIDER, GEMINI_MODEL, GEMINI_API_KEY, gemini_client
+    global LLM_PROVIDER, OLLAMA_MODEL, OLLAMA_HOST, ollama_client
     load_dotenv()
-    LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'gemini').strip().lower()
-    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.1-pro-preview')
-    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'ollama').strip().lower()
+    OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
+    OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 
-    gemini_client = None
+    ollama_client = None
 
-    if GEMINI_API_KEY:
-        try:
-            from google import genai
-            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-        except Exception:
-            gemini_client = None
+    try:
+        import ollama
+        if OLLAMA_HOST:
+            ollama_client = ollama.Client(host=OLLAMA_HOST)
+        else:
+            ollama_client = ollama.Client()
+    except Exception:
+        ollama_client = None
 
 # Initialize clients once at import time.
 load_llm_clients()
+
+def check_ollama_health():
+    """Verify Ollama is reachable and model is available."""
+    try:
+        if not ollama_client:
+            return False, "Ollama Python package is not installed."
+        
+        # We can ping the host directly to check if server is running
+        host = OLLAMA_HOST.rstrip('/')
+        try:
+            requests.get(f"{host}/api/version", timeout=3)
+        except Exception:
+            return False, "Ollama is not running. Start Ollama and try again."
+
+        # Check model exists
+        models = ollama_client.list()
+        model_names = [m.get('model', '') for m in models.get('models', [])]
+        if not any(OLLAMA_MODEL in m for m in model_names):
+            return False, f"The configured Ollama model '{OLLAMA_MODEL}' is not installed. Run: ollama pull {OLLAMA_MODEL}"
+        
+        return True, "Connected"
+    except Exception as e:
+        return False, "Ollama is not running. Start Ollama and try again."
 
 # Local index storage
 INDEX_DIR = os.path.join(os.path.dirname(__file__), '..', 'indexes')
@@ -171,52 +197,53 @@ def query_index(file_path, query, top_k=4):
 def generate_answer_with_llm(question, context_chunks):
     """Generate an answer using the configured LLM provider. Returns (answer, error)."""
     load_llm_clients()
+    
+    health_ok, health_msg = check_ollama_health()
+    if not health_ok:
+        return None, health_msg
+
     if not context_chunks:
-        return None, 'No relevant document context was found.'
+        return None, "I couldn't find enough information about this in the selected paper."
 
     system_instruction = (
-        "You are ResearchAI, an academic research assistant.\n"
-        "Answer questions using ONLY the supplied context from the selected research paper.\n"
-        "Do not invent facts.\n"
-        "If the supplied context does not contain enough information to answer the question, clearly say that the information could not be found in the selected paper.\n"
-        "Give concise but useful explanations.\n"
-        "When possible, reference the page number associated with the supporting context."
+        "You are ResearchAI, an academic research assistant.\n\n"
+        "Answer the user's question using ONLY the provided research-paper context.\n\n"
+        "Do not invent information.\n"
+        "Do not use unsupported facts.\n"
+        "Do not answer from general knowledge when the required information is absent from the context.\n\n"
+        "If the answer cannot be determined from the provided context, clearly say:\n"
+        "'I couldn't find enough information about this in the selected paper.'\n\n"
+        "Give concise but useful academic answers.\n\n"
+        "When possible, mention the relevant page number(s)."
     )
 
     context_text = "\n\n".join([f"[page {c['page']}] {c['text']}" for c in context_chunks])
-    prompt = f"Context:\n{context_text}\n\nQuestion: {question}"
+    
+    prompt = f"Context:\n{context_text}\n\nQuestion:\n{question}"
 
-    provider = LLM_PROVIDER
-    if provider == 'gemini':
-        if not GEMINI_API_KEY:
-            return None, 'Gemini API is not configured. Please check your environment configuration.'
-        if gemini_client is None:
-            return None, 'Gemini authentication failed. Please verify the API key.'
-
-        try:
-            response = gemini_client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config={
-                    "system_instruction": system_instruction,
-                    "temperature": 0.0
-                }
-            )
-            if response and response.text:
-                return response.text.strip(), None
-            else:
-                return None, 'The AI service returned an empty response.'
-        except Exception as exc:
-            err_str = str(exc).lower()
-            if 'quota' in err_str or 'rate' in err_str or '429' in err_str:
-                return None, 'Gemini API quota or rate limit has been reached. Please try again later.'
-            if 'not found' in err_str or 'unavailable' in err_str:
-                return None, 'The configured Gemini model is currently unavailable.'
-            if 'api key' in err_str or '403' in err_str or 'unauthorized' in err_str:
-                return None, 'Gemini authentication failed. Please verify the API key.'
-            return None, 'ResearchAI could not generate an answer. Please try again.'
-
-    return None, f'LLM provider "{provider}" is not supported. Set LLM_PROVIDER=gemini.'
+    try:
+        response = ollama_client.chat(
+            model=OLLAMA_MODEL,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt}
+            ]
+            # Deliberately avoiding unsupported parameters like 'temperature' 
+            # to ensure strict API compatibility across Ollama package versions.
+        )
+        
+        answer = response.get('message', {}).get('content')
+        if answer:
+            return answer.strip(), None
+        else:
+            return None, 'Something went wrong while processing your question. Please try again.'
+    except Exception as exc:
+        err_str = str(exc).lower()
+        if 'connection refused' in err_str:
+            return None, 'Ollama is not running. Start Ollama and try again.'
+        if 'not found' in err_str:
+            return None, f"The configured Ollama model '{OLLAMA_MODEL}' is not installed. Run: ollama pull {OLLAMA_MODEL}"
+        return None, 'Something went wrong while processing your question. Please try again.'
 
 
 def answer_question(file_path, question, top_k=6):

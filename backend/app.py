@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, redirect, session, send_from_directory, url_for, abort, jsonify
 import os
 import sqlite3
+from contextlib import closing
 import uuid
 from datetime import datetime
 from dotenv import load_dotenv
@@ -30,11 +31,10 @@ def home():
     if "user" not in session:
         return redirect("/login")
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT paper_id, filename, summary, keywords, uploaded_at, pages, status FROM history WHERE username=? ORDER BY uploaded_at DESC", (session['user'],))
-    papers = cursor.fetchall()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT paper_id, filename, summary, keywords, uploaded_at, pages, status FROM history WHERE username=? ORDER BY uploaded_at DESC", (session['user'],))
+        papers = cursor.fetchall()
 
     stats = {
         'papers': len(papers),
@@ -52,15 +52,13 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username, password)
-        )
-        user = cursor.fetchone()
-        conn.close()
+        with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM users WHERE username=? AND password=?",
+                (username, password)
+            )
+            user = cursor.fetchone()
 
         if user:
             session["user"] = username
@@ -81,16 +79,13 @@ def register():
         phone = request.form["phone"]
         dob = request.form["dob"]
 
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO users (first_name, last_name, username, password, phone, dob)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (first_name, last_name, username, password, phone, dob))
-
-        conn.commit()
-        conn.close()
+        with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO users (first_name, last_name, username, password, phone, dob)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (first_name, last_name, username, password, phone, dob))
+            conn.commit()
 
         return redirect("/login")
 
@@ -112,16 +107,13 @@ def profile():
 
     username = session["user"]
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT first_name, last_name, username, phone, dob 
-        FROM users WHERE username=?
-    """, (username,))
-    
-    user = cursor.fetchone()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT first_name, last_name, username, phone, dob 
+            FROM users WHERE username=?
+        """, (username,))
+        user = cursor.fetchone()
 
     if user:
         return render_template(
@@ -136,6 +128,53 @@ def profile():
         return "User not found"
 
 
+
+
+@app.route("/profile/edit", methods=["POST"])
+def edit_profile():
+    if "user" not in session:
+        return redirect("/login")
+    
+    first_name = request.form.get("first_name")
+    last_name = request.form.get("last_name")
+    phone = request.form.get("phone")
+    dob = request.form.get("dob")
+    
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users SET first_name=?, last_name=?, phone=?, dob=?
+            WHERE username=?
+        """, (first_name, last_name, phone, dob, session["user"]))
+        conn.commit()
+    
+    return redirect("/profile")
+
+
+@app.route("/api/papers/<paper_id>", methods=["DELETE"])
+def delete_paper(paper_id):
+    if "user" not in session:
+        return jsonify({"success": False, "error": "unauthenticated"}), 401
+    
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM history WHERE username=? AND paper_id=?", (session["user"], paper_id))
+        conn.commit()
+    
+    return jsonify({"success": True})
+
+
+@app.route("/api/history", methods=["DELETE"])
+def delete_all_history():
+    if "user" not in session:
+        return jsonify({"success": False, "error": "unauthenticated"}), 401
+    
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM history WHERE username=?", (session["user"],))
+        conn.commit()
+        
+    return jsonify({"success": True})
 
 
 @app.route("/upload", methods=["POST"])
@@ -168,25 +207,22 @@ def upload_file():
     keywords = extract_keywords(cleaned_text)
     similar_docs = find_similar_docs(cleaned_text)
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO history (username, paper_id, filename, summary, keywords, uploaded_at, pages, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        session["user"],
-        paper_id,
-        file.filename,
-        summary,
-        ", ".join(keywords),
-        datetime.utcnow().isoformat(),
-        pages,
-        'ready'
-    ))
-
-    conn.commit()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO history (username, paper_id, filename, summary, keywords, uploaded_at, pages, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            session["user"],
+            paper_id,
+            file.filename,
+            summary,
+            ", ".join(keywords),
+            datetime.utcnow().isoformat(),
+            pages,
+            'ready'
+        ))
+        conn.commit()
 
     return render_template(
         "result.html",
@@ -211,11 +247,10 @@ def api_chat():
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'unauthenticated'}), 401
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT filename FROM history WHERE username=? AND paper_id=?', (session['user'], paper_id))
-    row = cursor.fetchone()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT filename FROM history WHERE username=? AND paper_id=?', (session['user'], paper_id))
+        row = cursor.fetchone()
 
     if not row:
         return jsonify({'success': False, 'error': 'The selected paper could not be found.'}), 404
@@ -238,18 +273,15 @@ def dashboard():
     if "user" not in session:
         return redirect("/login")
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT paper_id, filename, summary, keywords, uploaded_at, pages, status
-        FROM history
-        WHERE username=?
-        ORDER BY uploaded_at DESC
-    """, (session["user"],))
-
-    papers = cursor.fetchall()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT paper_id, filename, summary, keywords, uploaded_at, pages, status
+            FROM history
+            WHERE username=?
+            ORDER BY uploaded_at DESC
+        """, (session["user"],))
+        papers = cursor.fetchall()
 
     stats = {
         'papers': len(papers),
@@ -269,11 +301,10 @@ def papers():
     if "user" not in session:
         return redirect('/login')
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT paper_id, filename, summary, keywords, uploaded_at, pages FROM history WHERE username=? ORDER BY uploaded_at DESC", (session['user'],))
-    rows = cursor.fetchall()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT paper_id, filename, summary, keywords, uploaded_at, pages FROM history WHERE username=? ORDER BY uploaded_at DESC", (session['user'],))
+        rows = cursor.fetchall()
     return render_template('papers.html', papers=rows)
 
 
@@ -285,11 +316,10 @@ def paper_view(paper_id):
     if "user" not in session:
         return redirect('/login')
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT paper_id, filename, summary, keywords FROM history WHERE username=? AND paper_id=?", (session['user'], paper_id))
-    row = cursor.fetchone()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT paper_id, filename, summary, keywords FROM history WHERE username=? AND paper_id=?", (session['user'], paper_id))
+        row = cursor.fetchone()
 
     if not row:
         return render_template('error.html', message='Paper not found or not analyzed yet')
@@ -324,11 +354,10 @@ def chat():
 def api_papers():
     if 'user' not in session:
         return jsonify({'error': 'unauthenticated'}), 401
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT paper_id, filename FROM history WHERE username=? ORDER BY uploaded_at DESC', (session['user'],))
-    rows = cursor.fetchall()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT paper_id, filename FROM history WHERE username=? ORDER BY uploaded_at DESC', (session['user'],))
+        rows = cursor.fetchall()
     papers = [{'paper_id': r[0], 'filename': r[1]} for r in rows]
     return jsonify({'papers': papers}), 200
 
@@ -341,11 +370,10 @@ def insights():
     if "user" not in session:
         return redirect('/login')
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT keywords FROM history WHERE username=?", (session['user'],))
-    rows = cursor.fetchall()
-    conn.close()
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT keywords FROM history WHERE username=?", (session['user'],))
+        rows = cursor.fetchall()
 
     # simple aggregation of keywords
     kw_counts = {}

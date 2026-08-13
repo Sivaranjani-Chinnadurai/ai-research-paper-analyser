@@ -1,55 +1,80 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Dashboard | ResearchAI{% endblock %}
-{% block header_title %}Good afternoon 👋{% endblock %}
-{% block header_sub %}Your intelligent research workspace.{% endblock %}
+{% block title %}Dashboard — ResearchAI{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
 
 {% block content %}
+<div style="margin-bottom: 2.5rem;">
+    <h1 style="margin-bottom: 0.25rem;">Good afternoon, {{ session.get('user', 'User') }} 👋</h1>
+    <p class="text-muted">Your intelligent research workspace.</p>
+</div>
 
-<div class="grid-stats">
+<div class="stats-grid">
     <div class="stat-card">
-        <h3>Papers Analyzed</h3>
-        <div class="value">{{ stats.papers }}</div>
+        <span class="text-muted text-sm font-medium">Papers Analyzed</span>
+        <span class="stat-value">{{ stats.papers if stats.papers > 0 else "—" }}</span>
     </div>
     <div class="stat-card">
-        <h3>Research Sessions</h3>
-        <div class="value">{{ stats.sessions }}</div>
+        <span class="text-muted text-sm font-medium">Questions Asked</span>
+        <span class="stat-value">{{ stats.questions if stats.questions > 0 else "—" }}</span>
     </div>
     <div class="stat-card">
-        <h3>Recent Papers (Today)</h3>
-        <div class="value">{{ stats.recent_activity }}</div>
+        <span class="text-muted text-sm font-medium">Research Sessions</span>
+        <span class="stat-value">{{ stats.sessions if stats.sessions > 0 else "—" }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="text-muted text-sm font-medium">Recent Activity</span>
+        <span class="stat-value">{{ stats.recent_activity if stats.recent_activity > 0 else "—" }}</span>
     </div>
 </div>
 
-<form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
-    <div class="upload-zone" id="uploadZone">
-        <div class="upload-icon">📄</div>
-        <div class="upload-title">Upload Research Paper</div>
-        <div class="muted">Drop your PDF here or <span style="color:var(--primary); font-weight:500;">Browse PDF</span></div>
-        <div class="muted" style="font-size: 0.8rem; margin-top: 8px;">Supported format: PDF</div>
-        <input type="file" name="file" id="fileInput" accept="application/pdf" style="display: none;">
-        <div id="uploadStatus" style="display: none;"></div>
-    </div>
-</form>
-
-<h2 style="margin-bottom: 20px; font-size: 1.25rem;">Recent Papers</h2>
-
-{% if papers %}
-<div class="paper-grid">
-    {% for paper in papers[:6] %}
-    <div class="paper-card">
-        <div class="paper-title">{{ paper[1] }}</div>
-        <div class="paper-meta">
-            {{ paper[5] if paper[5] else '?' }} Pages • Uploaded {{ paper[4][:10] if paper[4] else 'Unknown' }}
+<div style="margin-bottom: 3rem;">
+    <h2 style="margin-bottom: 1rem; font-size: 1.25rem;">Analyze a research paper</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+        <input type="file" id="fileInput" name="file" accept="application/pdf" style="display:none;" onchange="handleFileSelect(this)">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div id="dropZoneContent">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 1rem auto; display:block;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <h3 style="margin-bottom: 0.5rem;">Drop your PDF here or browse files</h3>
+                <p class="text-muted text-sm">Supports standard academic PDFs up to 50MB</p>
+                <button type="button" class="btn" id="uploadBtn" style="margin-top: 1.5rem;" onclick="document.getElementById('fileInput').click(); event.stopPropagation();">Select Paper</button>
+            </div>
         </div>
-        <div class="paper-actions">
-            <a href="/paper/{{ paper[0] }}" class="btn ghost" style="flex: 1; padding: 6px;">Analyze</a>
-        </div>
-    </div>
-    {% endfor %}
+    </form>
 </div>
-{% else %}
-<p class="muted">You haven't uploaded any research papers yet. Upload a PDF above to get started.</p>
-{% endif %}
 
+<div>
+    <h2 style="margin-bottom: 1rem; font-size: 1.25rem;">Recent Papers</h2>
+    
+    {% if papers %}
+    <div class="paper-grid">
+        {% for p in papers[:6] %}
+        <div class="paper-card">
+            <div style="display:flex; align-items:flex-start; gap:0.75rem;">
+                <div style="background:rgba(99,102,241,0.1); padding:0.5rem; border-radius:var(--radius-sm); color:var(--primary);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div style="flex:1; overflow:hidden;">
+                    <h3 style="font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ p[1] }}">{{ p[1] }}</h3>
+                    <p class="text-muted text-sm" style="margin:0;">{{ p[4][:10] }} • {% if p[5] %}{{ p[5] }} pages{% else %}Unknown{% endif %}</p>
+                </div>
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-top:auto;">
+                <a href="/paper/{{ p[0] }}" class="btn" style="flex:1;">Open</a>
+                <a href="/chat" class="btn ghost" style="flex:1;">Chat</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+        <p class="text-muted">No activity yet. Upload a paper to get started.</p>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -1,36 +1,122 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}My Papers | ResearchAI{% endblock %}
-{% block header_title %}My Papers{% endblock %}
-{% block header_sub %}Your research library.{% endblock %}
+{% block title %}My Papers — ResearchAI{% endblock %}
+{% block breadcrumb %}My Papers{% endblock %}
 
 {% block content %}
-<div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: center;">
-    <input type="text" placeholder="Search papers..." style="padding: 10px 16px; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); flex: 1; max-width: 400px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+    <div>
+        <h1 style="margin-bottom: 0.25rem;">My Papers</h1>
+        <p class="text-muted">Your research collection.</p>
+    </div>
+    
+    <div style="display:flex; gap:0.5rem;">
+        <button onclick="clearHistory()" class="btn danger ghost">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Clear History
+        </button>
+        <a href="/" class="btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Upload Paper
+        </a>
+    </div>
 </div>
 
-{% if papers %}
-<div class="paper-grid">
-    {% for paper in papers %}
-    <div class="paper-card">
-        <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">
-            <div style="font-size: 2rem; color: #ef4444;">📄</div>
-            <div>
-                <div class="paper-title" style="margin-bottom: 4px;">{{ paper[1] }}</div>
-                <div class="paper-meta" style="margin: 0;">{{ paper[5] if paper[5] else '?' }} Pages</div>
-            </div>
-        </div>
-        <div class="paper-meta">
-            Uploaded: {{ paper[4][:10] if paper[4] else 'Unknown' }}
-        </div>
-        <div class="paper-actions">
-            <a href="/paper/{{ paper[0] }}" class="btn ghost" style="flex: 1; padding: 6px;">Analyze</a>
-            <button class="btn ghost" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">Delete</button>
-        </div>
+<div class="card" style="padding:0; overflow:hidden;">
+    <div style="padding:1rem 1.5rem; border-bottom:1px solid var(--border); background-color:var(--surface-secondary);">
+        <input type="text" id="paperSearch" placeholder="Search papers..." style="max-width:300px;">
     </div>
-    {% endfor %}
+    
+    {% if papers %}
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border); background-color:var(--surface);">
+                    <th style="padding:1rem 1.5rem; font-weight:500; color:var(--text-muted); font-size:0.875rem;">Title / Filename</th>
+                    <th style="padding:1rem 1.5rem; font-weight:500; color:var(--text-muted); font-size:0.875rem;">Uploaded</th>
+                    <th style="padding:1rem 1.5rem; font-weight:500; color:var(--text-muted); font-size:0.875rem;">Pages</th>
+                    <th style="padding:1rem 1.5rem; font-weight:500; color:var(--text-muted); font-size:0.875rem;">Status</th>
+                    <th style="padding:1rem 1.5rem; font-weight:500; color:var(--text-muted); font-size:0.875rem; text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in papers %}
+                <tr style="border-bottom:1px solid var(--border);" class="paper-row">
+                    <td style="padding:1rem 1.5rem;">
+                        <div style="font-weight:500; margin-bottom:0.25rem;" class="paper-title">{{ p[1] }}</div>
+                        <div class="text-muted text-sm">{{ p[0][:8] }}...</div>
+                    </td>
+                    <td style="padding:1rem 1.5rem; color:var(--text-muted); font-size:0.875rem;">
+                        {{ p[4][:10] }}
+                    </td>
+                    <td style="padding:1rem 1.5rem; color:var(--text-muted); font-size:0.875rem;">
+                        {{ p[5] if p[5] else 'Unknown' }}
+                    </td>
+                    <td style="padding:1rem 1.5rem;">
+                        <span style="display:inline-flex; align-items:center; gap:0.375rem; font-size:0.75rem; background:rgba(16,185,129,0.1); color:var(--success); padding:0.25rem 0.625rem; border-radius:999px; font-weight:500;">
+                            <span style="width:6px; height:6px; border-radius:50%; background:currentColor;"></span> Analyzed
+                        </span>
+                    </td>
+                    <td style="padding:1rem 1.5rem; text-align:right;">
+                        <div style="display:inline-flex; gap:0.5rem;">
+                            <a href="/paper/{{ p[0] }}" class="btn ghost" style="padding:0.375rem 0.75rem;">Open</a>
+                            <a href="/chat?paper={{ p[0] }}" class="btn ghost" style="padding:0.375rem 0.75rem;">Chat</a>
+                            <button onclick="deletePaper('{{ p[0] }}')" class="btn ghost danger" style="padding:0.375rem 0.75rem;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding: 4rem 2rem; text-align: center;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5" style="margin:0 auto 1rem auto; display:block;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <h3 style="margin-bottom:0.5rem;">No research papers yet</h3>
+        <p class="text-muted" style="margin-bottom:1.5rem;">Upload your first paper to begin analysis.</p>
+        <a href="/" class="btn">Upload your first paper</a>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<p class="muted">No papers found. Upload a paper on the Dashboard to see it here.</p>
-{% endif %}
+
+<script>
+document.getElementById('paperSearch')?.addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    document.querySelectorAll('.paper-row').forEach(row => {
+        const title = row.querySelector('.paper-title').textContent.toLowerCase();
+        if (title.includes(term)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+async function deletePaper(paperId) {
+    if (!confirm('Are you sure you want to delete this paper from your history?')) return;
+    try {
+        const res = await fetch(`/api/papers/${paperId}`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else alert('Failed to delete paper');
+    } catch (e) {
+        alert('Network error');
+    }
+}
+
+async function clearHistory() {
+    if (!confirm('Are you sure you want to clear ALL your paper history? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/api/history', { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else alert('Failed to clear history');
+    } catch (e) {
+        alert('Network error');
+    }
+}
+</script>
 {% endblock %}

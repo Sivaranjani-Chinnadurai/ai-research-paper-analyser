@@ -5,4 +5,4 @@ sumy
 scikit-learn
 numpy
 python-dotenv
-google-genai
+ollama
