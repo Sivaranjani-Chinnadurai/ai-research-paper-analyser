@@ -6,8 +6,9 @@
   --border: #e5e7eb;
   --text: #111827;
   --text-muted: #6b7280;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --primary: #111827;
+  --primary-hover: #000000;
+  --primary-text: #ffffff;
   --success: #10b981;
   --danger: #ef4444;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
@@ -26,8 +27,9 @@
   --border: #2a2d35;
   --text: #f9fafb;
   --text-muted: #9ca3af;
-  --primary: #6366f1;
-  --primary-hover: #818cf8;
+  --primary: #f9fafb;
+  --primary-hover: #ffffff;
+  --primary-text: #0f1115;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
 }
@@ -84,7 +86,7 @@ p { margin-bottom: 1rem; }
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background-color: var(--primary);
-  color: #fff !important;
+  color: var(--primary-text) !important;
   cursor: pointer;
   transition: all 0.15s ease;
   gap: 0.5rem;
@@ -116,8 +118,8 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: var(--text-muted);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
@@ -136,7 +138,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   flex-direction: column;
   height: 100vh;
   z-index: 40;
-  transition: transform 0.3s ease;
+  transition: width 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .sidebar-header {
@@ -172,9 +176,9 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .nav-item.active {
   background-color: var(--primary);
-  color: #fff;
+  color: var(--primary-text);
 }
-.nav-item.active svg { stroke: #fff; }
+.nav-item.active svg { stroke: var(--primary-text); }
 
 .sidebar-footer {
   padding: 1rem;
@@ -194,7 +198,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   height: 32px;
   border-radius: 50%;
   background-color: var(--primary);
-  color: white;
+  color: var(--primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -254,8 +258,8 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   cursor: pointer;
 }
 .upload-zone:hover {
-  border-color: var(--primary);
-  background-color: rgba(99, 102, 241, 0.05);
+  border-color: var(--text-muted);
+  background-color: var(--surface);
 }
 
 /* Stat Grid */
@@ -354,7 +358,7 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .chat-msg.user .msg-bubble {
   background-color: var(--primary);
-  color: white;
+  color: var(--primary-text);
   border-bottom-right-radius: 4px;
 }
 .chat-msg.ai .msg-bubble {
@@ -385,16 +389,45 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   border-top: 1px solid var(--border);
 }
 
-/* Responsive */
-.mobile-nav-toggle {
-  display: none;
+/* Responsive & Sidebar Toggle */
+.sidebar-toggle-btn {
   background: transparent;
   border: none;
   color: var(--text);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+.sidebar-toggle-btn:hover {
+  opacity: 0.7;
+}
+
+body.sidebar-collapsed {
+  --sidebar-width: 0px;
+}
+
+/* Ensure sidebar hides properly when width is 0 */
+body.sidebar-collapsed .sidebar {
+  border-right: none;
+}
+body.sidebar-collapsed .sidebar * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (min-width: 769px) {
+  #closeSidebarBtn {
+    display: none !important;
+  }
 }
 
 @media (max-width: 768px) {
+  body.sidebar-collapsed {
+    /* Mobile doesn't use the width hack, it uses transform */
+    --sidebar-width: 260px;
+  }
   .app-container {
     flex-direction: column;
   }
@@ -405,9 +438,6 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   }
   .sidebar.open {
     transform: translateX(0);
-  }
-  .mobile-nav-toggle {
-    display: block;
   }
   .auth-layout {
     flex-direction: column;

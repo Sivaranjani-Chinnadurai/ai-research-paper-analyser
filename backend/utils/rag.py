@@ -246,18 +246,31 @@ def generate_answer_with_llm(question, context_chunks):
         return None, 'Something went wrong while processing your question. Please try again.'
 
 
-def answer_question(file_path, question, top_k=6):
+def answer_question(file_path, question, top_k=5):
     if not os.path.exists(file_path):
         return {'success': False, 'error': 'The selected paper could not be found.'}
 
     meta = build_index(file_path)
     results = query_index(file_path, question, top_k=top_k)
 
-    if not results:
+    if not results and not meta.get('chunks'):
         return {'success': False, 'error': 'I could not find enough information about this question in the selected paper.', 'sources': []}
 
     sources = [{'page': r['chunk']['page'], 'text': r['chunk']['text'], 'score': r['score']} for r in results]
     context_chunks = [r['chunk'] for r in results]
+
+    # Heuristic: ALWAYS include the first 2 chunks (usually page 1: title, authors, abstract)
+    # TF-IDF often misses these for questions like "who is the author" if the word "author" isn't explicitly there.
+    if meta.get('chunks'):
+        for i in range(min(2, len(meta['chunks']))):
+            c = meta['chunks'][i]
+            already_in = any(existing['id'] == c['id'] for existing in context_chunks)
+            if not already_in:
+                context_chunks.insert(i, c)
+                sources.insert(i, {'page': c['page'], 'text': c['text'], 'score': 1.0})
+
+    if not context_chunks:
+         return {'success': False, 'error': 'I could not find enough information about this question in the selected paper.', 'sources': []}
 
     answer, error = generate_answer_with_llm(question, context_chunks)
     if error:

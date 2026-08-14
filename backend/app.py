@@ -36,9 +36,15 @@ def home():
         cursor.execute("SELECT paper_id, filename, summary, keywords, uploaded_at, pages, status FROM history WHERE username=? ORDER BY uploaded_at DESC", (session['user'],))
         papers = cursor.fetchall()
 
+        try:
+            cursor.execute("SELECT COUNT(*) FROM chats WHERE username=? AND role='user'", (session['user'],))
+            questions_count = cursor.fetchone()[0]
+        except Exception:
+            questions_count = 0
+
     stats = {
         'papers': len(papers),
-        'questions': 0,
+        'questions': questions_count,
         'sessions': len(papers),
         'recent_activity': len([p for p in papers if p[4] and datetime.fromisoformat(p[4]) >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)])
     }
@@ -263,7 +269,59 @@ def api_chat():
     if not isinstance(res, dict) or not res.get('success'):
         return jsonify({'success': False, 'error': res.get('error', 'The AI service could not generate a response.'), 'sources': res.get('sources', [])}), 200
 
+    # Save to history
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        now = datetime.utcnow().isoformat()
+        
+        # Insert User Question
+        cursor.execute("""
+            INSERT INTO chats (paper_id, username, role, content, sources, created_at)
+            VALUES (?, ?, 'user', ?, NULL, ?)
+        """, (paper_id, session['user'], question, now))
+        
+        # Insert AI Answer
+        sources_json = json.dumps(res.get('sources', []))
+        cursor.execute("""
+            INSERT INTO chats (paper_id, username, role, content, sources, created_at)
+            VALUES (?, ?, 'ai', ?, ?, ?)
+        """, (paper_id, session['user'], res.get('answer'), sources_json, now))
+        
+        conn.commit()
+
     return jsonify(res), 200
+
+
+@app.route('/api/chat/<paper_id>', methods=['GET'])
+def get_chat_history(paper_id):
+    if 'user' not in session:
+        return jsonify({'error': 'unauthenticated'}), 401
+        
+    with closing(sqlite3.connect(DB_PATH, timeout=10.0)) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT role, content, sources 
+            FROM chats 
+            WHERE username=? AND paper_id=? 
+            ORDER BY id ASC
+        """, (session['user'], paper_id))
+        rows = cursor.fetchall()
+        
+    history = []
+    for r in rows:
+        sources = []
+        if r[2]:
+            try:
+                sources = json.loads(r[2])
+            except Exception:
+                pass
+        history.append({
+            'role': r[0],
+            'content': r[1],
+            'sources': sources
+        })
+        
+    return jsonify({'history': history}), 200
 
 
 
@@ -283,9 +341,15 @@ def dashboard():
         """, (session["user"],))
         papers = cursor.fetchall()
 
+        try:
+            cursor.execute("SELECT COUNT(*) FROM chats WHERE username=? AND role='user'", (session['user'],))
+            questions_count = cursor.fetchone()[0]
+        except Exception:
+            questions_count = 0
+
     stats = {
         'papers': len(papers),
-        'questions': 0,
+        'questions': questions_count,
         'sessions': len(papers),
         'recent_activity': len([p for p in papers if p[4] and datetime.fromisoformat(p[4]) >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)])
     }

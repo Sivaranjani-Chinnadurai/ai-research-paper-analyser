@@ -42,6 +42,17 @@ def init_db():
         status TEXT
     )
     """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        paper_id TEXT,
+        username TEXT,
+        role TEXT,
+        content TEXT,
+        sources TEXT,
+        created_at TEXT
+    )
+    """)
 
     cursor.execute("PRAGMA table_info(history)")
     existing_columns = {row[1] for row in cursor.fetchall()}
